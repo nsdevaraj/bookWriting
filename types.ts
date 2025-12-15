@@ -3,6 +3,7 @@ export interface Chapter {
   title: string;
   status: 'validated' | 'draft' | 'missing';
   content?: string;
+  fileName?: string;
   lastUpdated?: string;
 }
 

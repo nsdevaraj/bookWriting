@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Chapter } from '../types';
 import { ThinkingStatus } from './ThinkingStatus';
 import { suggestOutline, generateChapterContent } from '../services/gemini';
@@ -14,6 +14,35 @@ export const ChapterView: React.FC<ChapterViewProps> = ({ chapter, onUpdateChapt
   const [isOutlineLoading, setIsOutlineLoading] = useState(false);
   const [references, setReferences] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [isLoadingFile, setIsLoadingFile] = useState(false);
+
+  // Effect to load chapter content from file if available and content is missing
+  useEffect(() => {
+    const loadContent = async () => {
+      if (chapter.fileName && !chapter.content) {
+        setIsLoadingFile(true);
+        setError(null);
+        try {
+          // Attempt to fetch from the public chapters directory
+          const response = await fetch(`/chapters/${chapter.fileName}`);
+          if (!response.ok) {
+            throw new Error(`Failed to load chapter file: ${response.statusText}`);
+          }
+          const text = await response.text();
+          onUpdateChapter(chapter.id, text);
+        } catch (e) {
+          console.error("Error loading chapter file:", e);
+          // Don't set error state here to allow fallback to generation UI, 
+          // or we can set a specific "file load error" if preferred.
+          // For now, we'll let it fall through to the "Missing" UI but with a console error.
+        } finally {
+          setIsLoadingFile(false);
+        }
+      }
+    };
+
+    loadContent();
+  }, [chapter.id, chapter.fileName, chapter.content, onUpdateChapter]);
 
   const handleSuggestOutline = async () => {
     setIsOutlineLoading(true);
@@ -44,6 +73,15 @@ export const ChapterView: React.FC<ChapterViewProps> = ({ chapter, onUpdateChapt
       setIsGenerating(false);
     }
   };
+
+  if (isLoadingFile) {
+    return (
+      <div className="flex flex-col items-center justify-center p-12 h-full">
+        <div className="w-12 h-12 border-4 border-brand-200 border-t-brand-600 rounded-full animate-spin mb-4"></div>
+        <p className="text-gray-500">Loading chapter content...</p>
+      </div>
+    );
+  }
 
   if (chapter.status === 'missing' && !chapter.content) {
     return (
